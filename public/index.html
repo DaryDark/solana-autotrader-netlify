@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CHED Autotrader</title>
+  <link rel="stylesheet" href="/styles.css"/>
+</head>
+<body>
+  <div class="container">
+    <h1>CHED Autotrader</h1>
+    <p class="muted">Netlify scheduled (1-min) • Jupiter Lite API</p>
+
+    <section class="card">
+      <h2>Controls</h2>
+      <div class="row">
+        <button id="startBtn">Start</button>
+        <button id="stopBtn" class="secondary">Stop</button>
+      </div>
+      <div class="row">
+        <label>Mode</label>
+        <select id="mode">
+          <option value="safe">Safe</option>
+          <option value="medium">Medium</option>
+          <option value="aggressive">Aggressive</option>
+          <option value="custom">Custom</option>
+        </select>
+        <label>Custom USD per trade</label>
+        <input id="customUsd" type="number" min="0.01" step="0.01" value="1"/>
+      </div>
+      <div class="row">
+        <label>Theme</label>
+        <select id="theme">
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+          <option value="ocean">Ocean</option>
+          <option value="sunset">Sunset</option>
+        </select>
+      </div>
+      <div class="row">
+        <button id="saveSettings">Save Settings</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Telegram</h2>
+      <div class="row">
+        <label>Chat ID or username</label>
+        <input id="telegramChatId" placeholder="@your_username or numeric id"/>
+      </div>
+      <div class="row">
+        <button id="saveTelegram">Save Telegram</button>
+        <button id="testTelegram" class="secondary">Send Test Photo</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Profit</h2>
+      <div id="pnl">
+        <div>24h: <span id="p24">—</span></div>
+        <div>7d: <span id="p7">—</span></div>
+        <div>30d: <span id="p30">—</span></div>
+      </div>
+      <div>
+        <h3>Recent Trades</h3>
+        <ul id="trades"></ul>
+      </div>
+    </section>
+
+    <footer>
+      <small>Profit auto-sweeps to: <code>PHANTOM_PNL_ADDRESS (env)</code></small>
+    </footer>
+  </div>
+  <script src="/app.js" type="module"></script>
+</body>
+</html>
