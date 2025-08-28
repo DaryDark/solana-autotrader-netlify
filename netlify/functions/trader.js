@@ -1,51 +1,87 @@
-import { getSettings, getPositions, setPositions, addTrade, getSolUsd, dexNewPairs, rugcheckToken, passesSafetyChecks, getBotKeypair, getConnection, jupSwap, usdToLamports, pickTradeSizeUsd } from "./_shared/util.js";
+import {
+  getSettings,
+  getPositions,
+  setPositions,
+  addTrade,
+  getSolusd,
+  dexNewPairs,
+  rugcheckToken,
+  passesSafetyChecks,
+  getBotKeypair,    // ✅ from util.js
+  getConnection     // ✅ from util.js
+} from "./_shared/util.js";
+
 import { schedule } from "@netlify/functions";
+
 const SOL_MINT = "So11111111111111111111111111111111111111112";
 
 export const handler = schedule("*/1 * * * *", async () => {
-  const settings = await getSettings();
-  if (!settings.run) return { statusCode: 200, body: "Bot paused." };
+  try {
+    // load settings
+    const settings = await getSettings();
+    if (!settings.run) {
+      return { statusCode: 200, body: "Bot paused." };
+    }
 
-  const conn = getConnection();
-  const kp = getBotKeypair();
-  const solUsd = await getSolUsd();
+    // connect to Solana
+    const conn = getConnection();
+    const kp = getBotKeypair();
+    const solUsd = await getSolusd();
 
-  const balLamports = await conn.getBalance(kp.publicKey, "processed");
-  const walletSol = balLamports / 1e9;
-  const walletUsd = walletSol * solUsd;
+    // wallet balance
+    const balLamports = await conn.getBalance(kp.publicKey, "processed");
+    const walletSol = balLamports / 1e9;
+    const walletUsd = walletSol * solUsd;
 
-  let positions = await getPositions();
-  const now = Date.now();
-  const updated = [];
-  for (const pos of positions) {
-    const ageMin = (now - pos.ts) / 60000;
-    if (ageMin > (pos.timeStopMin ?? 60)) {
-      await addTrade({ tsOpen: pos.ts, tsClose: now, mint: pos.mint, sizeUsd: pos.sizeUsd, pnlUsd: -Math.abs(pos.sizeUsd * 0.002) });
-    } else updated.push(pos);
-  }
-  await setPositions(updated);
+    console.log(`Wallet balance: ${walletSol} SOL (~$${walletUsd})`);
 
-  const pairs = await dexNewPairs();
-  const candidates = pairs
-    .filter(p => p?.baseToken?.address && p?.priceChange?.m5 !== undefined)
-    .map(p => ({ mint: p.baseToken.address, symbol: p.baseToken.symbol, m5:+(p.priceChange.m5||0), h1:+(p.priceChange.h1||0) }))
-    .sort((a,b)=> (b.m5+b.h1)-(a.m5+a.h1))
-    .slice(0,5);
+    // fetch new pairs
+    const pairs = await dexNewPairs();
+    console.log(`Found ${pairs.length} new pairs`);
 
-  for (const c of candidates) {
-    try {
-      const rc = await rugcheckToken(c.mint);
-      if (!passesSafetyChecks(rc)) continue;
-      const sizeUsd = pickTradeSizeUsd(settings.mode, settings.customUsd, walletUsd);
-      if (sizeUsd < 0.05) continue;
-      const amountInLamports = usdToLamports(sizeUsd, solUsd);
+    for (const pair of pairs) {
       try {
-        const sig = await jupSwap({ inputMint: SOL_MINT, outputMint: c.mint, amountIn: amountInLamports, slippageBps: 10 });
-        const pos = { mint: c.mint, symbol: c.symbol, entrySig: sig, ts: Date.now(), sizeUsd, timeStopMin: 60 };
-        const cur = await getPositions(); cur.push(pos); await setPositions(cur);
-      } catch (e) { console.log("Swap failed", e?.message || e); }
-    } catch {}
-  }
+        // Rugcheck
+        const rugResult = await rugcheckToken(pair.mint);
+        if (!passesSafetyChecks(rugResult)) {
+          console.log(`❌ Skipping ${pair.symbol} (${pair.mint}) - unsafe`);
+          continue;
+        }
 
-  return { statusCode: 200, body: "Tick complete." };
+        console.log(`✅ Safe token detected: ${pair.symbol} (${pair.mint})`);
+
+        // record position
+        const positions = await getPositions();
+        positions.push({
+          mint: pair.mint,
+          symbol: pair.symbol,
+          boughtAt: Date.now(),
+          amount: 0, // TODO: update with buy amount
+        });
+        await setPositions(positions);
+
+        // add trade log
+        await addTrade({
+          type: "BUY",
+          mint: pair.mint,
+          symbol: pair.symbol,
+          timestamp: Date.now(),
+        });
+
+      } catch (err) {
+        console.error("Error processing pair:", pair, err);
+      }
+    }
+
+    return {
+      statusCode: 200,
+      body: "Trader run complete",
+    };
+  } catch (e) {
+    console.error("Trader error:", e);
+    return {
+      statusCode: 500,
+      body: `Trader error: ${e.message}`,
+    };
+  }
 });
