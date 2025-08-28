@@ -24,14 +24,44 @@ export function store() {
   });
 }
 
-/** ✅ NEW: Provide a Connection for trader.js */
+/** ✅ Connection used by trader.js */
 export function getConnection() {
   const url =
     process.env.SOLANA_RPC_URL ||
     process.env.RPC_URL ||
-    "https://api.mainnet-beta.solana.com"; // public endpoint (rate-limited)
+    "https://api.mainnet-beta.solana.com"; // public, rate-limited
   const commitment = process.env.SOLANA_COMMITMENT || "processed";
   return new Connection(url, { commitment });
+}
+
+/** ✅ Return the bot wallet Keypair from env (supports base58 OR JSON array) */
+export function getBotKeypair() {
+  const raw =
+    process.env.BOT_PRIVATE_KEY ||
+    process.env.BOT_KEY ||
+    process.env.PRIVATE_KEY;
+
+  if (!raw) {
+    throw new Error(
+      "BOT_PRIVATE_KEY is not set in environment variables on Netlify."
+    );
+  }
+
+  try {
+    // JSON array format: [12,34,56,...]
+    if (raw.trim().startsWith("[")) {
+      const arr = JSON.parse(raw);
+      return Keypair.fromSecretKey(Uint8Array.from(arr));
+    }
+
+    // Base58 string format
+    const secretKey = bs58.decode(raw);
+    return Keypair.fromSecretKey(secretKey);
+  } catch (e) {
+    throw new Error(
+      `Invalid BOT_PRIVATE_KEY format. Expected base58 string or JSON array. ${e.message}`
+    );
+  }
 }
 
 // -------------------------------
@@ -65,15 +95,7 @@ export async function setTrades(data) {
 }
 
 // -------------------------------
-// Solana keypair helpers
-// -------------------------------
-export function loadKeypair(secret) {
-  const secretKey = bs58.decode(secret);
-  return Keypair.fromSecretKey(secretKey);
-}
-
-// -------------------------------
-// Send SOL
+// Send SOL helper (not required by all flows)
 // -------------------------------
 export async function sendSol(connection, fromKeypair, toPubkey, lamports) {
   const ix = SystemProgram.transfer({
