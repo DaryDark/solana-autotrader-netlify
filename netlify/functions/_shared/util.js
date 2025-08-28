@@ -13,13 +13,25 @@ export const SETTINGS_KEY = "settings.json";
 export const POSITIONS_KEY = "positions.json";
 export const TRADES_KEY = "trades.json";
 
-// ✅ Fixed store function with manual Site ID + Token
+/** Create a Netlify Blobs store (manual siteID + token to avoid env injection issues) */
 export function store() {
   return getStore({
     name: "bot",
     siteID: process.env.NETLIFY_SITE_ID || "297754e5-d221-485e-a5e3-606ddc855f8f",
-    token: process.env.NETLIFY_BLOBS_TOKEN || "nfp_33KKYQgmcvXbA5UwgSfrwCynoh1MqXMA8cda",
+    token:
+      process.env.NETLIFY_BLOBS_TOKEN ||
+      "nfp_33KKYQgmcvXbA5UwgSfrwCynoh1MqXMA8cda",
   });
+}
+
+/** ✅ NEW: Provide a Connection for trader.js */
+export function getConnection() {
+  const url =
+    process.env.SOLANA_RPC_URL ||
+    process.env.RPC_URL ||
+    "https://api.mainnet-beta.solana.com"; // public endpoint (rate-limited)
+  const commitment = process.env.SOLANA_COMMITMENT || "processed";
+  return new Connection(url, { commitment });
 }
 
 // -------------------------------
