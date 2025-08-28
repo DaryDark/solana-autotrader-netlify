@@ -13,22 +13,17 @@ export const SETTINGS_KEY = "settings.json";
 export const POSITIONS_KEY = "positions.json";
 export const TRADES_KEY = "trades.json";
 
-// ✅ Fixed store function
+// ✅ Fixed store function with manual Site ID + Token
 export function store() {
-  const siteID = process.env.NETLIFY_SITE_ID;       // add in Netlify env vars
-  const token = process.env.NETLIFY_BLOBS_TOKEN;    // add in Netlify env vars
-
-  if (!siteID || !token) {
-    throw new Error(
-      "❌ Netlify Blobs not configured. Please set NETLIFY_SITE_ID and NETLIFY_BLOBS_TOKEN in Environment variables."
-    );
-  }
-
-  return getStore({ name: "bot", siteID, token });
+  return getStore({
+    name: "bot",
+    siteID: process.env.NETLIFY_SITE_ID || "297754e5-d221-485e-a5e3-606ddc855f8f",
+    token: process.env.NETLIFY_BLOBS_TOKEN || "nfp_33KKYQgmcvXbA5UwgSfrwCynoh1MqXMA8cda",
+  });
 }
 
 // -------------------------------
-// Helpers for settings / positions
+// Settings / Positions / Trades
 // -------------------------------
 export async function getSettings() {
   const s = await store().get(SETTINGS_KEY, { type: "json" });
@@ -41,7 +36,7 @@ export async function setSettings(data) {
 
 export async function getPositions() {
   const s = await store().get(POSITIONS_KEY, { type: "json" });
-  return s || {};
+  return s || [];
 }
 
 export async function setPositions(data) {
